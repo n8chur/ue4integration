@@ -325,10 +325,16 @@ FMOD_RESULT F_CALLBACK UFMODAudioComponent_EventCallback(FMOD_STUDIO_EVENT_CALLB
 void UFMODAudioComponent::EventCallbackAddMarker(FMOD_STUDIO_TIMELINE_MARKER_PROPERTIES* props)
 {
 	FScopeLock Lock(&CallbackLock);
-	FTimelineMarkerProperties info;
+	
+    FTimelineMarkerProperties info;
 	info.Name = props->name;
 	info.Position = props->position;
 	CallbackMarkerQueue.Push(info);
+    
+    FTimelineMarker marker;
+    marker.Name = props->name;
+    marker.Position = props->position;
+    TimelineMarkers.Push(marker);
 }
 
 void UFMODAudioComponent::EventCallbackAddBeat(FMOD_STUDIO_TIMELINE_BEAT_PROPERTIES* props)
@@ -480,8 +486,69 @@ void UFMODAudioComponent::Play()
 			UE_LOG(LogFMOD, Verbose, TEXT("Playing component %p"), this);
 			bIsActive = true;
 			SetComponentTickEnabled(true);
-		}
-	}
+            
+            if (EventDesc != nullptr)
+            {
+                UserProperties.Empty();
+            
+                int32 UserPropertyCount;
+                EventDesc->getUserPropertyCount(&UserPropertyCount);
+                for (int32 PropertyIdx = 0; PropertyIdx < UserPropertyCount; PropertyIdx++)
+                {
+                    FMOD_STUDIO_USER_PROPERTY FMODUserProperty;
+                    EventDesc->getUserPropertyByIndex(PropertyIdx, &FMODUserProperty);
+                    
+                    FUserProperty UserProperty = FUserProperty();
+                    
+                    FText PropertyText;
+                    switch (FMODUserProperty.type)
+                    {
+                        case FMOD_STUDIO_USER_PROPERTY_TYPE_INTEGER:
+                            UserProperty.Type = EUserPropertyType::PT_Integer;
+                            UserProperty.IntegerValue = FMODUserProperty.intValue;
+                            UserProperty.FloatValue = FMODUserProperty.floatValue;
+                            break;
+                        case FMOD_STUDIO_USER_PROPERTY_TYPE_BOOLEAN:
+                            UserProperty.Type = EUserPropertyType::PT_Bool;
+                            UserProperty.BoolValue = FMODUserProperty.boolValue;
+                            break;
+                        case FMOD_STUDIO_USER_PROPERTY_TYPE_STRING:
+                            if (strncmp(FMODUserProperty.stringValue, "true", 4) == 0)
+                            {
+                                UserProperty.Type = EUserPropertyType::PT_Bool;
+                                UserProperty.BoolValue = true;
+                            }
+                            else if (strncmp(FMODUserProperty.stringValue, "false", 4) == 0)
+                            {
+                                UserProperty.Type = EUserPropertyType::PT_Bool;
+                                UserProperty.BoolValue = false;
+                            }
+                            else
+                            {
+                                UserProperty.Type = EUserPropertyType::PT_String;
+                            }
+                            UserProperty.StringValue = FMODUserProperty.stringValue;
+                            break;
+                        case FMOD_STUDIO_USER_PROPERTY_TYPE_FLOAT:
+                            if (ceilf(FMODUserProperty.floatValue) == FMODUserProperty.floatValue)
+                            {
+                                UserProperty.Type = EUserPropertyType::PT_Integer;
+                                UserProperty.IntegerValue = lroundf(FMODUserProperty.floatValue);
+                            }
+                            else
+                            {
+                                UserProperty.Type = EUserPropertyType::PT_Float;
+                            }
+                            UserProperty.FloatValue = FMODUserProperty.floatValue;
+                            break;
+                    }
+                    UserProperty.Name = FMODUserProperty.name;
+                    
+                    UserProperties.Push(UserProperty);
+                }
+            }
+        }
+    }
 }
 
 void UFMODAudioComponent::Stop()
@@ -648,4 +715,23 @@ float UFMODAudioComponent::GetParameter(FName Name)
 		}
 	}
 	return Value;
+}
+
+FTimelineMarker UFMODAudioComponent::GetTimelineMarker(FString Name)
+{
+    for (FTimelineMarker TimelineMarker : TimelineMarkers) {
+        if (TimelineMarker.Name == Name) {
+            return TimelineMarker;
+        }
+    }
+    return FTimelineMarker("Not Found", -1);
+}
+
+FUserProperty UFMODAudioComponent::GetUserProperty(FString Name) {
+    for (FUserProperty UserProperty : UserProperties) {
+        if (UserProperty.Name == Name) {
+            return UserProperty;
+        }
+    }
+    return FUserProperty();
 }

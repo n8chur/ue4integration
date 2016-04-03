@@ -49,8 +49,77 @@ struct FMOD_STUDIO_TIMELINE_BEAT_PROPERTIES;
 /* Purely for doxygen generation */
 #ifdef GENERATE_DOX
 	#define UCLASS(...)
+    #define USTRUCT(...)
 	#define UPROPERTY(...) public:
 #endif
+
+USTRUCT(BlueprintType)
+struct FTimelineMarker
+{
+    GENERATED_USTRUCT_BODY()
+    
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Timeline Marker")
+    FString Name;
+    
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Timeline Marker")
+    int32 Position;
+    
+    FTimelineMarker(FString n, int32 p)
+    {
+        Name = n;
+        Position = p;
+    }
+    
+    FTimelineMarker()
+    {
+        Name = "Not Initialized";
+        Position = 0;
+    }
+};
+
+UENUM(BlueprintType)
+enum class EUserPropertyType : uint8
+{
+    PT_Unknown UMETA(DisplayName="Unknown"),
+    PT_Integer UMETA(DisplayName="Integer"),
+    PT_Float   UMETA(DisplayName="Float"),
+    PT_Bool    UMETA(DisplayName="Bool"),
+    PT_String  UMETA(DisplayName="String")
+};
+
+USTRUCT(BlueprintType)
+struct FUserProperty
+{
+    GENERATED_USTRUCT_BODY()
+    
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="User Property")
+    EUserPropertyType Type;
+    
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="User Property")
+    FString Name;
+    
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="User Property")
+    int32 IntegerValue;
+    
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="User Property")
+    float FloatValue;
+    
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="User Property")
+    bool BoolValue;
+    
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="User Property")
+    FString StringValue;
+    
+    FUserProperty()
+    {
+        Type = EUserPropertyType::PT_Unknown;
+        Name = "Unknown";
+        IntegerValue = -1;
+        FloatValue = -1;
+        BoolValue = false;
+        StringValue = "";
+    }
+};
 
 /**
  * Plays FMOD Studio events.
@@ -137,6 +206,21 @@ class FMODSTUDIO_API UFMODAudioComponent : public USceneComponent
 	/** Get the timeline position in milliseconds */
 	UFUNCTION(BlueprintCallable, Category="Audio|FMOD|Components")
 	int32 GetTimelinePosition();
+    
+    /** Returns an array of timeline markers. Only returns a marker events that have already occured. */
+    UPROPERTY(BlueprintReadOnly, Category="Audio|FMOD|Components")
+    TArray<FTimelineMarker> TimelineMarkers;
+    
+    /** Get an existing timeline marker by name. Only returns a valid value if the timeline marker event has already occured. Returns FTimelineMarker("Not Found", -1) if not found. */
+    UFUNCTION(BlueprintCallable, Category="Audio|FMOD|Components")
+    FTimelineMarker GetTimelineMarker(FString Name);
+    
+    /** Returns the user property with the given name or an "PT_Unknown" type if not found. */
+    UFUNCTION(BlueprintCallable, Category="Audio|FMOD|Components")
+    FUserProperty GetUserProperty(FString Name);
+    
+    UPROPERTY(BlueprintReadOnly, Category="Audio|FMOD|Components")
+    TArray<FUserProperty> UserProperties;
 
 	/** Called when the event has finished stopping */
 	void OnPlaybackCompleted();
